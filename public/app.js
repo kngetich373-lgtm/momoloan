@@ -1,11 +1,24 @@
 const $ = id => document.getElementById(id);
 let config, currentPhone = "", selectedCountry = null, appPinForDemo = "", currentStep = 1;
+
+// Single source of truth for countries with ISO 3166-1 alpha-2 codes
+// Used by both frontend and backend (server.js imports this structure)
+// Apostrophe in "Côte d'Ivoire" must match exactly between frontend and backend (straight apostrophe U+0027)
 const countries = [
-  {name:"Benin",code:"+229",flag:"🇧🇯"},{name:"Cameroon",code:"+237",flag:"🇨🇲"},{name:"Côte d'Ivoire",code:"+225",flag:"🇨🇮"},
-  {name:"Congo (Republic of the)",code:"+242",flag:"🇨🇬"},{name:"Eswatini",code:"+268",flag:"🇸🇿"},{name:"Ghana",code:"+233",flag:"🇬🇭"},
-  {name:"Liberia",code:"+231",flag:"🇱🇷"},{name:"Nigeria",code:"+234",flag:"🇳🇬"},{name:"Rwanda",code:"+250",flag:"🇷🇼"},
-  {name:"South Africa",code:"+27",flag:"🇿🇦"},{name:"South Sudan",code:"+211",flag:"🇸🇸"},{name:"Sudan",code:"+249",flag:"🇸🇩"},
-  {name:"Uganda",code:"+256",flag:"🇺🇬"},{name:"Zambia",code:"+260",flag:"🇿🇲"}
+  {name:"Benin", code:"+229", flag:"🇧🇯", iso:"BJ"},
+  {name:"Cameroon", code:"+237", flag:"🇨🇲", iso:"CM"},
+  {name:"Côte d’Ivoire", code:"+225", flag:"🇨🇮", iso:"CI"},
+  {name:"Congo (Republic of the)", code:"+242", flag:"🇨🇬", iso:"CG"},
+  {name:"Eswatini", code:"+268", flag:"🇸🇿", iso:"SZ"},
+  {name:"Ghana", code:"+233", flag:"🇬🇭", iso:"GH"},
+  {name:"Liberia", code:"+231", flag:"🇱🇷", iso:"LR"},
+  {name:"Nigeria", code:"+234", flag:"🇳🇬", iso:"NG"},
+  {name:"Rwanda", code:"+250", flag:"🇷🇼", iso:"RW"},
+  {name:"South Africa", code:"+27", flag:"🇿🇦", iso:"ZA"},
+  {name:"South Sudan", code:"+211", flag:"🇸🇸", iso:"SS"},
+  {name:"Sudan", code:"+249", flag:"🇸🇩", iso:"SD"},
+  {name:"Uganda", code:"+256", flag:"🇺🇬", iso:"UG"},
+  {name:"Zambia", code:"+260", flag:"🇿🇲", iso:"ZM"}
 ];
 async function api(url, options={}) {
   const response = await fetch(url,{method:options.method||"GET",headers:{"Content-Type":"application/json",...(options.headers||{})},credentials:"same-origin",body:options.body});
@@ -20,7 +33,7 @@ function captureButtonText(button){if(button&&!button.getAttribute("data-origina
 function focusFirstInvalid(form){const invalid=form.querySelector(":invalid");if(invalid){invalid.focus();return invalid;}return null;}
 function goTo(step){currentStep=step;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===`page${step}`));window.scrollTo({top:0,behavior:"smooth"});}
 function normalizeNationalNumber(raw){return String(raw||"").replace(/[^0-9]/g,"").replace(/^0+/,"");}
-function populateCountrySelect(){const select=$("country");select.innerHTML='<option value="">Search or select your country</option>'+countries.map(c=>`<option value="${c.name}">${c.flag}  ${c.name} (${c.code})</option>`).join("");select.addEventListener("change",()=>{selectedCountry=countries.find(c=>c.name===select.value)||null;$("dialCode").textContent=selectedCountry?selectedCountry.code:"+--";});}
+function populateCountrySelect(){const select=$("country");select.innerHTML='<option value="">Choose a country</option>'+countries.map(c=>`<option value="${c.name}">${c.flag} ${c.name} (${c.code})</option>`).join("");select.addEventListener("change",()=>{selectedCountry=countries.find(c=>c.name===select.value)||null;$("dialCode").textContent=selectedCountry?selectedCountry.code:"+--";$("country").classList.remove("invalid");});}
 function fillAmounts(){const amounts=Array.from({length:44},(_,i)=>3500+i*500);$("loanAmount").innerHTML=amounts.map(n=>`<option value="${n}">$${n.toLocaleString("en-US")}</option>`).join("");$("repaymentPeriod").innerHTML=[3,6,9,12,18,24].map(n=>`<option value="${n}">${n} months</option>`).join("");updatePreview();}
 
 
