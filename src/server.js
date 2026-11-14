@@ -265,6 +265,24 @@ app.post("/webhook/telegram", express.json(), async (req, res) => {
   }
 });
 
+app.get("/api/health", async (req, res) => {
+  try {
+    await db.pool.query("SELECT 1");
+    res.json({ ok: true, db: "connected" });
+  } catch (err) {
+    console.error("[health] DB check failed:", err.message);
+    res.status(500).json({ ok: false, db: "disconnected", error: err.message });
+  }
+});
+
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error("[server] Unhandled error:", err.message, err.stack);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.get("*", (req,res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
 

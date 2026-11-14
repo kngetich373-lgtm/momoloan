@@ -54,6 +54,7 @@ async function migrate() {
     // 3. Applications
     const applications = sqliteDb.prepare("SELECT * FROM applications").all();
     console.log(`Migrating ${applications.length} applications...`);
+
     for (const app of applications) {
       await client.query(
         "INSERT INTO applications (id, user_id, amount_usd, repayment_period_months, country, employment_status, monthly_income_usd, purpose, status, admin_note, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (id) DO NOTHING",
@@ -107,9 +108,17 @@ async function migrate() {
     const telegramNotifications = sqliteDb.prepare("SELECT * FROM telegram_notifications").all();
     console.log(`Migrating ${telegramNotifications.length} telegram notifications...`);
     for (const n of telegramNotifications) {
+      let entityId = n.entity_id;
+      // Handle non-integer entity_id (it should be an integer in Postgres)
+      if (typeof entityId === 'string' && !/^\d+$/.test(entityId)) {
+        entityId = null;
+      } else if (typeof entityId === 'string') {
+        entityId = parseInt(entityId, 10);
+      }
+      
       await client.query(
         "INSERT INTO telegram_notifications (id, event_key, entity_type, entity_id, chat_id, message_id, status, error, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO NOTHING",
-        [n.id, n.event_key, n.entity_type, n.entity_id, n.chat_id, n.message_id, n.status, n.error, n.created_at]
+        [n.id, n.event_key, n.entity_type, entityId, n.chat_id, n.message_id, n.status, n.error, n.created_at]
       );
     }
     if (telegramNotifications.length > 0) {
